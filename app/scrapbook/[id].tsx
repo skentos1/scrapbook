@@ -2,6 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Image,
   InteractionManager,
@@ -15,9 +16,13 @@ import {
 import {
   ArrowLeftIcon,
   HeartIcon,
+  PencilIcon,
+  PhotoIcon,
   PlusIcon,
   SparklesIcon,
+  StarIcon,
 } from "react-native-heroicons/outline";
+import { StarIcon as StarSolid } from "react-native-heroicons/solid";
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -44,6 +49,7 @@ const ScrapbookDetailScreen = () => {
   const [currentMemoryIndex, setCurrentMemoryIndex] = useState(0);
   const [imageCache, setImageCache] = useState({});
   const [isPreloading, setIsPreloading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Optimalizovaná funkcia pre URL obrázkov
   const getOptimizedImageUrl = useCallback((url, size = 800) => {
@@ -106,6 +112,7 @@ const ScrapbookDetailScreen = () => {
       ]);
 
       setScrapbook(scrapbookData);
+      setIsFavorite(scrapbookData.isFavourite === true); // Nastavenie favorite stavu
 
       // Optimalizácia URL pre memories
       const optimizedMemories = memoriesResponse.documents.map((memory) => ({
@@ -129,22 +136,76 @@ const ScrapbookDetailScreen = () => {
       setLoading(false);
     }
   }, [scrapbookId, getOptimizedImageUrl]);
+  const handleToggleFavorite = async () => {
+    try {
+      // Optimistic update - zmenia sa ikona okamžite
+      setIsFavorite(!isFavorite);
+
+      // Update v databáze
+      await scrapbookService.toggleFavoriteScrapbook(
+        scrapbookId as string,
+        isFavorite
+      );
+
+      console.log(
+        `📌 Scrapbook ${scrapbookId} favorite status changed to: ${!isFavorite}`
+      );
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
+
+      // Rollback pri chybe
+      setIsFavorite(isFavorite);
+
+      Alert.alert("Chyba", "Nepodarilo sa zmeniť obľúbené");
+    }
+  };
 
   // Okamžitá navigácia bez timeout
   const navigateMemory = useCallback(
-    (direction) => {
-      if (direction === "next" && currentMemoryIndex < memories.length - 1) {
-        const newIndex = currentMemoryIndex + 1;
-        setCurrentMemoryIndex(newIndex);
-        preloadImages(newIndex);
-      } else if (direction === "prev" && currentMemoryIndex > 0) {
-        const newIndex = currentMemoryIndex - 1;
-        setCurrentMemoryIndex(newIndex);
-        preloadImages(newIndex);
-      }
+    (direction: "prev" | "next") => {
+      console.log(`🎯 MAIN Navigation: ${direction}`);
+
+      // FUNCTIONAL STATE UPDATE - vždy aktuálna hodnota!
+      setCurrentMemoryIndex((prevIndex) => {
+        console.log(`📊 Current index in state: ${prevIndex}`);
+
+        if (direction === "next" && prevIndex < memories.length - 1) {
+          const newIndex = prevIndex + 1;
+          console.log(`✅ Moving NEXT: ${prevIndex} → ${newIndex}`);
+
+          // Preload po state update
+          setTimeout(() => {
+            if (memories[newIndex]) {
+              preloadImages(newIndex);
+            }
+          }, 50);
+
+          return newIndex;
+        } else if (direction === "prev" && prevIndex > 0) {
+          const newIndex = prevIndex - 1;
+          console.log(`✅ Moving PREV: ${prevIndex} → ${newIndex}`);
+
+          // Preload po state update
+          setTimeout(() => {
+            if (memories[newIndex]) {
+              preloadImages(newIndex);
+            }
+          }, 50);
+
+          return newIndex;
+        } else {
+          console.log(
+            `❌ Cannot navigate ${direction} from ${prevIndex} (max: ${memories.length - 1})`
+          );
+          return prevIndex; // Zostať na aktuálnom indexe
+        }
+      });
     },
-    [currentMemoryIndex, memories.length, preloadImages]
+    [memories.length, preloadImages] // Odstránené currentMemoryIndex z dependencies!
   );
+  const handleEditScrapbook = () => {
+    router.push(`/edit-scrapbook/${scrapbookId}`);
+  };
 
   // Formátovanie dátumu
   const formatDate = useCallback((dateString) => {
@@ -228,74 +289,118 @@ const ScrapbookDetailScreen = () => {
 
           <View className="absolute inset-0 bg-black/40" />
 
+          {/* Edit Button - Top Left Corner */}
+          <View className="absolute top-8 left-6 z-10">
+            <TouchableOpacity
+              onPress={handleEditScrapbook}
+              className="bg-gray-600/50 backdrop-blur-sm rounded-full p-3 border border-white/20"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }}
+            >
+              <PencilIcon size={18} color="white" />
+            </TouchableOpacity>
+          </View>
+          <View className="absolute top-8 right-6 z-10">
+            <TouchableOpacity
+              onPress={handleToggleFavorite}
+              className={`backdrop-blur-sm rounded-full p-3 border ${
+                isFavorite
+                  ? "bg-yellow-500/20 border-yellow-400/30"
+                  : "bg-gray-600/50 border-white/20"
+              }`}
+              style={{
+                shadowColor: isFavorite ? "#fbbf24" : "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+              }}
+            >
+              <Animated.View>
+                {isFavorite ? (
+                  <StarSolid size={20} color="#fbbf24" />
+                ) : (
+                  <StarIcon size={20} color="white" />
+                )}
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
+
           <View className="absolute inset-0 items-center justify-center px-8">
             <Animated.View
               entering={FadeInUp.delay(200).duration(800)}
               className="items-center"
             >
-              <Text className="text-white text-4xl font-bold mb-4 text-center">
+              <Text className="text-white text-4xl font-bold mb-8 text-center">
                 {scrapbook?.title}
               </Text>
-              {scrapbook?.description && (
-                <Text className="text-white/80 text-lg text-center mb-8">
-                  {scrapbook.description}
-                </Text>
-              )}
-              <View className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-8">
-                <Text className="text-white font-medium">
+
+              <View className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-4 flex-row items-center">
+                <PhotoIcon size={20} color="white" />
+                <Text className="text-white font-medium ml-2">
                   {memoriesCount}{" "}
                   {memoriesCount === 1 ? "spomienka" : "spomienok"}
                 </Text>
               </View>
-              {hasMemories ? (
-                <>
-                  <Text className="text-white/60 text-sm mb-2">
-                    Ťuknite pre otvorenie scrapbooku
+
+              {hasMemories && (
+                <Text className="text-white/60 text-sm mb-2">
+                  Ťuknite pre otvorenie scrapbooku
+                </Text>
+              )}
+            </Animated.View>
+          </View>
+
+          {/* Bottom Buttons */}
+          <View className="absolute bottom-16 left-8 right-8 z-10">
+            {hasMemories ? (
+              <>
+                <TouchableOpacity
+                  onPress={() => setViewMode("grid")}
+                  className="bg-white/10 backdrop-blur-sm rounded-2xl py-4 px-6 mb-4"
+                >
+                  <Text className="text-white text-center font-medium">
+                    Zobraziť všetky memories
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setViewMode("grid")}
-                    className="bg-white/10 backdrop-blur-sm rounded-2xl py-4 px-6"
-                  >
-                    <Text className="text-white text-center font-medium">
-                      Zobraziť všetky memories
-                    </Text>
-                  </TouchableOpacity>
-                  <View className="w-full mt-4 items-center">
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push(
-                          `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
-                        )
-                      }
-                      className="bg-white rounded-full px-6 py-4"
-                    >
-                      <View className="flex-row items-center">
-                        <PlusIcon size={20} color="black" />
-                        <Text className="text-black font-medium ml-2">
-                          Pridať novú spomienku
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() =>
                     router.push(
                       `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
                     )
                   }
-                  className="bg-white rounded-2xl py-4 px-6"
+                  className="bg-white rounded-full px-6 py-4"
                 >
                   <View className="flex-row items-center justify-center">
                     <PlusIcon size={20} color="black" />
                     <Text className="text-black font-medium ml-2">
-                      Pridať prvú spomienku
+                      Pridať novú spomienku
                     </Text>
                   </View>
                 </TouchableOpacity>
-              )}
-            </Animated.View>
+              </>
+            ) : (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push(
+                    `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
+                  )
+                }
+                className="bg-white rounded-2xl py-4 px-6"
+              >
+                <View className="flex-row items-center justify-center">
+                  <PlusIcon size={20} color="black" />
+                  <Text className="text-black font-medium ml-2">
+                    Pridať prvú spomienku
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </Pressable>
       </View>
@@ -309,9 +414,9 @@ const ScrapbookDetailScreen = () => {
         currentMemoryIndex={currentMemoryIndex}
         onNavigate={navigateMemory}
         onBack={() => setViewMode("overview")}
-        onMemoryPress={(memoryId) => router.push(`/memory/${memoryId}`)}
+        // onMemoryPress={(memoryId) => router.push(`/memory/${memoryId}`)}
         formatDate={formatDate}
-        imageCache={imageCache}
+        // imageCache={imageCache}
       />
     );
   }

@@ -1,7 +1,7 @@
 import TopBar from "@/components/TopBar";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -25,6 +25,45 @@ const ProfileScreen = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [profileImage, setProfileImage] = useState(null);
+  // ...existing code...
+
+  // Load user statistics
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!user) return;
+
+      try {
+        const scrapbooksData = await scrapbookService.getUserScrapbooks(
+          user.$id
+        );
+
+        // Spočítaj spomienky zo všetkých scrapbookov
+        const totalMemories =
+          scrapbooksData.documents?.reduce(
+            (sum, scrapbook) => sum + (scrapbook.memoriesCount || 0),
+            0
+          ) || 0;
+
+        // Spočítaj fotky - pre presné číslo by si musel načítať všetky spomienky
+        // Zatiaľ používam memoriesCount ako aproximáciu
+        const totalPhotos = totalMemories;
+
+        setStats({
+          scrapbooks: scrapbooksData.total || 0,
+          memories: totalMemories,
+          photos: totalPhotos,
+          loading: false,
+        });
+      } catch (error) {
+        console.error("Failed to load stats:", error);
+        setStats((prev) => ({ ...prev, loading: false }));
+      }
+    };
+
+    loadStats();
+  }, [user]);
+
+  // ...existing code...
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -128,9 +167,9 @@ const ProfileScreen = () => {
               </View>
 
               {/* User Info Cards */}
-              <View className="space-y-4 mb-8">
+              <View className="space-y-5 mb-8 gap-4">
                 <View className="bg-neutral-900 rounded-3xl p-6 border border-white/10">
-                  <View className="flex-row items-center justify-between mb-2">
+                  <View className="flex-row items-center justify-between mb-4">
                     <Text className="text-gray-400 text-sm font-medium">
                       MENO
                     </Text>

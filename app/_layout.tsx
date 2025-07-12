@@ -55,6 +55,20 @@ export default function Layout() {
             headerPressColorAndroid: "#374151",
           }}
         />
+        <Stack.Screen
+          name="edit-memory/[memoryId]"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "#000000" },
+          }}
+        />
+        <Stack.Screen
+          name="edit-scrapbook/[scrapbookId]"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "#000000" },
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

@@ -61,9 +61,10 @@ const styles = StyleSheet.create({
   container: {
     position: "relative",
     zIndex: 999,
+    paddingLeft: 8,
   },
   avatarButton: {
-    backgroundColor: "#9333ea",
+    backgroundColor: "#1f1f1f",
     padding: 8,
     borderRadius: 999,
   },

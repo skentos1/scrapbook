@@ -22,8 +22,8 @@ import { scrapbookService } from "../../lib/scrapbooks";
 
 const { width, height } = Dimensions.get("window");
 
-// Featured scrapbook data (mock)
-const featuredScrapbook = {
+// Default featured scrapbook data (fallback)
+const defaultFeaturedScrapbook = {
   id: "1",
   title: "Cestovateľské Dobrodružstvá",
   description: "Svet očami cestovatela, každé dobrodružstvo je príbeh.",
@@ -36,17 +36,26 @@ const HomeScreen = () => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [userScrapbooks, setUserScrapbooks] = useState([]);
+  const [favoriteScrapbook, setFavoriteScrapbook] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load user's scrapbooks
+  // Load user's scrapbooks and find favorite
   const loadUserScrapbooks = async () => {
     if (!user) return;
 
     try {
       setLoading(true);
       const response = await scrapbookService.getUserScrapbooks(user.$id);
-      setUserScrapbooks(response.documents || []);
+      const scrapbooks = response.documents || [];
+
+      setUserScrapbooks(scrapbooks);
+
+      // Nájdi prvý favorite scrapbook
+      const favorite = scrapbooks.find(
+        (scrapbook) => scrapbook.isFavourite === true
+      );
+      setFavoriteScrapbook(favorite || null);
     } catch (error) {
       console.error("Failed to load scrapbooks:", error);
     } finally {
@@ -85,6 +94,23 @@ const HomeScreen = () => {
     if (hour < 18) return "Dobrý deň";
     return "Dobrý večer";
   };
+
+  // Get featured scrapbook (favorite or default) - JEDINÁ ZMENA
+  const getFeaturedScrapbook = () => {
+    if (favoriteScrapbook) {
+      return {
+        id: favoriteScrapbook.$id,
+        title: favoriteScrapbook.title,
+        description: favoriteScrapbook.description || "Váš obľúbený scrapbook",
+        coverImage:
+          favoriteScrapbook.coverImage || defaultFeaturedScrapbook.coverImage,
+        memories: favoriteScrapbook.memoriesCount || 0,
+      };
+    }
+    return defaultFeaturedScrapbook;
+  };
+
+  const featuredScrapbook = getFeaturedScrapbook();
 
   const renderUserScrapbook = (item, index) => (
     <Animated.View
@@ -186,7 +212,7 @@ const HomeScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Featured Scrapbook */}
+        {/* Featured Scrapbook - ZOBRAZÍ FAVORITE AK EXISTUJE, INAK DEFAULT */}
         <Animated.View
           entering={FadeIn.delay(400).duration(800)}
           className="mx-6 mb-8"
