@@ -1,3 +1,4 @@
+import TopBar from "@/components/TopBar";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -10,11 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  BellIcon,
-  PlusIcon,
-  UserCircleIcon,
-} from "react-native-heroicons/outline";
+import { PlusIcon } from "react-native-heroicons/outline";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -140,56 +137,7 @@ const HomeScreen = () => {
   return (
     <SafeAreaView className="flex-1 bg-black">
       {/* Top Bar */}
-      <Animated.View
-        entering={FadeInDown.duration(600)}
-        className="bg-black/95 backdrop-blur-xl px-6 py-4 border-b border-white/10"
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 4,
-        }}
-      >
-        <View className="flex-row items-center justify-between">
-          {/* App Name */}
-          <View className="flex-1">
-            <Text className="text-white text-xl font-bold">
-              Memo
-              <Text className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                ries
-              </Text>
-            </Text>
-            <Text className="text-gray-400 text-xs">Digitálne spomienky</Text>
-          </View>
-
-          {/* Right Icons */}
-          <View className="flex-row items-center space-x-3">
-            {/* Notifications */}
-            {isAuthenticated && (
-              <TouchableOpacity
-                className="bg-white/10 rounded-full p-2 border border-white/20"
-                onPress={() => router.push("/notifications")}
-              >
-                <BellIcon size={20} color="#a855f7" />
-              </TouchableOpacity>
-            )}
-
-            {/* Profile */}
-            <TouchableOpacity
-              className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-full p-2"
-              onPress={() =>
-                isAuthenticated
-                  ? router.push("/profile")
-                  : router.push("/login")
-              }
-            >
-              <UserCircleIcon size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Animated.View>
-
+      <TopBar />
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -207,7 +155,7 @@ const HomeScreen = () => {
           entering={FadeInDown.duration(800)}
           className="px-6 pt-6 "
         >
-          <View className="items-center mb-8">
+          <View className="items-center mb-8 z-10">
             <Text className="text-gray-400 text-sm mb-2">
               {getGreeting()}, {user?.name || "Tvorca"}
             </Text>
@@ -299,10 +247,16 @@ const HomeScreen = () => {
               <Text className="text-white text-xl font-bold">
                 Tvoja Kolekcia
               </Text>
-              <TouchableOpacity onPress={() => router.push("/scrapbook")}>
+              <TouchableOpacity onPress={() => router.push("/ScrapBooks")}>
                 <Text className="text-purple-400 font-medium text-sm">
                   Zobraziť všetko →
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/create")}
+                className="bg-white/10 px-3 py-1 rounded-full border border-white/20"
+              >
+                <Text className="text-white text-sm">+ Nový</Text>
               </TouchableOpacity>
             </View>
 

@@ -68,25 +68,34 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: "",
-          tabBarIcon: ({ focused }) => (
-            <View className="absolute -top-5">
+          title: "Create",
+          tabBarIcon: ({ color, focused }) => (
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <LinearGradient
                 colors={
-                  focused ? ["#a855f7", "#ec4899"] : ["#7c3aed", "#db2777"]
+                  focused ? ["#a855f7", "#ec4899"] : ["#6366f1", "#8b5cf6"]
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                className="w-14 h-14 rounded-full items-center justify-center"
                 style={{
-                  shadowColor: "#a855f7",
-                  shadowOffset: { width: 0, height: 4 },
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: focused ? "#a855f7" : "#6366f1",
+                  shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.3,
-                  shadowRadius: 6,
-                  elevation: 6,
+                  shadowRadius: 4,
+                  elevation: 4,
                 }}
               >
-                <PlusCircleIcon size={28} color="white" />
+                <PlusCircleIcon size={18} color="white" />
               </LinearGradient>
             </View>
           ),
@@ -96,7 +105,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="library"
         options={{
-          title: "Library",
+          title: "Scrapbooks", // Zmení sa len názov z "Library" na "Scrapbooks"
           tabBarIcon: ({ color, focused }) =>
             focused ? (
               <BookmarkSolid size={24} color={color} />

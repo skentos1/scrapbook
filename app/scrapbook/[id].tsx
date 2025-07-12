@@ -1,10 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   Image,
+  InteractionManager,
   Pressable,
   SafeAreaView,
   StatusBar,
@@ -42,116 +42,130 @@ const ScrapbookDetailScreen = () => {
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState("overview");
   const [currentMemoryIndex, setCurrentMemoryIndex] = useState(0);
-  const [nextImageLoaded, setNextImageLoaded] = useState(false);
-  const navigationTimeout = useRef(null);
+  const [imageCache, setImageCache] = useState({});
+  const [isPreloading, setIsPreloading] = useState(false);
 
+  // Optimalizovaná funkcia pre URL obrázkov
+  const getOptimizedImageUrl = useCallback((url, size = 800) => {
+    if (!url) return null;
+
+    // Ak je to Cloudinary URL, pridať transformácie
+    if (url.includes("cloudinary")) {
+      const parts = url.split("/upload/");
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/w_${size},f_auto,q_auto/${parts[1]}`;
+      }
+    }
+    return url;
+  }, []);
+
+  // Vylepšená preload funkcia
+  const preloadImages = useCallback(
+    async (centerIndex) => {
+      if (isPreloading) return;
+      setIsPreloading(true);
+
+      const indicesToLoad = [];
+
+      // Načítať 3 obrázky dopredu a 2 dozadu
+      for (let i = -2; i <= 3; i++) {
+        const index = centerIndex + i;
+        if (index >= 0 && index < memories.length) {
+          indicesToLoad.push(index);
+        }
+      }
+
+      const promises = indicesToLoad.map(async (index) => {
+        const memory = memories[index];
+        if (memory?.imageUrl && !imageCache[memory.imageUrl]) {
+          try {
+            const optimizedUrl = getOptimizedImageUrl(memory.imageUrl);
+            await Image.prefetch(optimizedUrl);
+            setImageCache((prev) => ({ ...prev, [memory.imageUrl]: true }));
+          } catch (error) {
+            console.error("Preload error:", error);
+          }
+        }
+      });
+
+      await Promise.all(promises);
+      setIsPreloading(false);
+    },
+    [memories, imageCache, isPreloading, getOptimizedImageUrl]
+  );
+
+  // Načítanie detailov scrapbooku
   const loadScrapbookDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const scrapbookData = await scrapbookService.getScrapbook(scrapbookId);
+
+      // Paralelné načítanie scrapbooku a memories
+      const [scrapbookData, memoriesResponse] = await Promise.all([
+        scrapbookService.getScrapbook(scrapbookId as string),
+        memoriesService.getScrapbookMemories(scrapbookId as string),
+      ]);
+
       setScrapbook(scrapbookData);
 
-      const memoriesData =
-        await memoriesService.getScrapbookMemories(scrapbookId);
-      setMemories(memoriesData.documents || []);
+      // Optimalizácia URL pre memories
+      const optimizedMemories = memoriesResponse.documents.map((memory) => ({
+        ...memory,
+        imageUrl: getOptimizedImageUrl(memory.imageUrl),
+        thumbnailUrl: getOptimizedImageUrl(memory.imageUrl, 400),
+      }));
+
+      setMemories(optimizedMemories || []);
+
+      // Začať preloadovať obrázky po načítaní
+      if (optimizedMemories.length > 0) {
+        InteractionManager.runAfterInteractions(() => {
+          preloadImages(0);
+        });
+      }
     } catch (error) {
       console.error("Failed to load scrapbook details:", error);
-      setError("Nepodarilo sa načítať detail scrapbooku");
+      setError("Nepodarilo sa načítať detaily scrapbooku");
     } finally {
       setLoading(false);
     }
-  }, [scrapbookId]);
+  }, [scrapbookId, getOptimizedImageUrl]);
 
-  const handleDeleteMemory = useCallback(
-    (memoryId, memoryTitle) => {
-      Alert.alert(
-        "Vymazať spomienku",
-        `Naozaj chcete vymazať "${memoryTitle}"?`,
-        [
-          { text: "Zrušiť", style: "cancel" },
-          {
-            text: "Vymazať",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await memoriesService.deleteMemory(memoryId, scrapbookId);
-                await loadScrapbookDetails();
-                setCurrentMemoryIndex(0);
-              } catch (error) {
-                Alert.alert("Chyba", "Nepodarilo sa vymazať spomienku");
-              }
-            },
-          },
-        ]
-      );
-    },
-    [scrapbookId, loadScrapbookDetails]
-  );
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("sk-SK", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
+  // Okamžitá navigácia bez timeout
   const navigateMemory = useCallback(
     (direction) => {
-      if (navigationTimeout.current) clearTimeout(navigationTimeout.current);
-
-      navigationTimeout.current = setTimeout(() => {
-        if (direction === "next" && currentMemoryIndex < memories.length - 1) {
-          setCurrentMemoryIndex((prev) => {
-            const newIndex = prev + 1;
-            preloadNextImage(newIndex);
-            return newIndex;
-          });
-        } else if (direction === "prev" && currentMemoryIndex > 0) {
-          setCurrentMemoryIndex((prev) => {
-            const newIndex = prev - 1;
-            preloadNextImage(newIndex);
-            return newIndex;
-          });
-        }
-      }, 50);
-    },
-    [currentMemoryIndex, memories.length]
-  );
-
-  const preloadNextImage = useCallback(
-    (index) => {
-      const start = Math.max(0, index - 2);
-      const end = Math.min(memories.length - 1, index + 2);
-      for (let i = start; i <= end; i++) {
-        const memory = memories[i];
-        if (memory?.imageUrl) {
-          Image.prefetch(memory.imageUrl)
-            .then(() => {
-              if (i === index + 1) setNextImageLoaded(true); // Mark next image as loaded
-            })
-            .catch((error) =>
-              console.log(`Preload error for ${memory.imageUrl}:`, error)
-            );
-        }
+      if (direction === "next" && currentMemoryIndex < memories.length - 1) {
+        const newIndex = currentMemoryIndex + 1;
+        setCurrentMemoryIndex(newIndex);
+        preloadImages(newIndex);
+      } else if (direction === "prev" && currentMemoryIndex > 0) {
+        const newIndex = currentMemoryIndex - 1;
+        setCurrentMemoryIndex(newIndex);
+        preloadImages(newIndex);
       }
     },
-    [memories]
+    [currentMemoryIndex, memories.length, preloadImages]
   );
 
-  // Initial preload and update on index change
-  useEffect(() => {
-    if (memories.length > 0) {
-      preloadNextImage(currentMemoryIndex);
-    }
-  }, [currentMemoryIndex, memories, preloadNextImage]);
+  // Formátovanie dátumu
+  const formatDate = useCallback((dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("sk-SK", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }, []);
 
+  // Načítanie pri mount
   useEffect(() => {
     if (scrapbookId) {
       loadScrapbookDetails();
     }
-  }, [scrapbookId, loadScrapbookDetails]);
+  }, [scrapbookId]);
+
+  // Memo pre optimalizáciu renderov
+  const memoriesCount = useMemo(() => memories.length, [memories]);
+  const hasMemories = useMemo(() => memoriesCount > 0, [memoriesCount]);
 
   if (!isAuthenticated) {
     router.replace("/login");
@@ -194,96 +208,93 @@ const ScrapbookDetailScreen = () => {
           translucent
         />
         <Pressable
-          onPress={() => memories.length > 0 && setViewMode("single")}
+          onPress={() => hasMemories && setViewMode("single")}
           className="flex-1 relative"
         >
           {scrapbook?.coverImage ? (
             <Image
-              source={{ uri: scrapbook.coverImage }}
-              style={{ width: "100%", height: "100%" }}
+              source={{ uri: getOptimizedImageUrl(scrapbook.coverImage, 1200) }}
+              className="w-full h-full"
               resizeMode="cover"
             />
           ) : (
             <LinearGradient
-              colors={["#8b5cf6", "#ec4899", "#f59e0b"]}
+              colors={["#8b5cf6", "#ec4899"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ width: "100%", height: "100%" }}
-              className="items-center justify-center"
-            >
-              <HeartIcon size={80} color="white" opacity={0.3} />
-            </LinearGradient>
+              className="w-full h-full"
+            />
           )}
-          <View
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.3)",
-            }}
-          />
-          <SafeAreaView className="absolute top-0 left-0 right-0">
-            <View className="px-6 py-4">
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="bg-black/20 backdrop-blur-sm rounded-full p-3 self-start"
-              >
-                <ArrowLeftIcon size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-          <View className="absolute bottom-0 left-0 right-0 px-8 pb-12">
-            <Animated.View entering={FadeInUp.delay(200).duration(400)}>
-              <Text className="text-white text-4xl font-black mb-4">
+
+          <View className="absolute inset-0 bg-black/40" />
+
+          <View className="absolute inset-0 items-center justify-center px-8">
+            <Animated.View
+              entering={FadeInUp.delay(200).duration(800)}
+              className="items-center"
+            >
+              <Text className="text-white text-4xl font-bold mb-4 text-center">
                 {scrapbook?.title}
               </Text>
               {scrapbook?.description && (
-                <Text className="text-white/80 text-lg mb-8 leading-6">
+                <Text className="text-white/80 text-lg text-center mb-8">
                   {scrapbook.description}
                 </Text>
               )}
-              <View className="flex-row items-center mb-8">
-                <View className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-                  <Text className="text-white font-medium">
-                    {memories.length} spomienok
+              <View className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-8">
+                <Text className="text-white font-medium">
+                  {memoriesCount}{" "}
+                  {memoriesCount === 1 ? "spomienka" : "spomienok"}
+                </Text>
+              </View>
+              {hasMemories ? (
+                <>
+                  <Text className="text-white/60 text-sm mb-2">
+                    Ťuknite pre otvorenie scrapbooku
                   </Text>
-                </View>
-              </View>
-              <View className="space-y-4">
-                {memories.length > 0 ? (
-                  <>
-                    <Text className="text-white/60 text-sm mb-2">
-                      Ťuknite pre otvorenie scrapbooku
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setViewMode("grid")}
-                      className="bg-white/10 backdrop-blur-sm rounded-2xl py-4 px-6"
-                    >
-                      <Text className="text-white text-center font-medium">
-                        Zobraziť všetky memories
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
                   <TouchableOpacity
-                    onPress={() =>
-                      router.push(
-                        `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
-                      )
-                    }
-                    className="bg-white rounded-2xl py-4 px-6"
+                    onPress={() => setViewMode("grid")}
+                    className="bg-white/10 backdrop-blur-sm rounded-2xl py-4 px-6"
                   >
-                    <View className="flex-row items-center justify-center">
-                      <PlusIcon size={20} color="black" />
-                      <Text className="text-black font-medium ml-2">
-                        Pridať prvú spomienku
-                      </Text>
-                    </View>
+                    <Text className="text-white text-center font-medium">
+                      Zobraziť všetky memories
+                    </Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                  <View className="w-full mt-4 items-center">
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push(
+                          `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
+                        )
+                      }
+                      className="bg-white rounded-full px-6 py-4"
+                    >
+                      <View className="flex-row items-center">
+                        <PlusIcon size={20} color="black" />
+                        <Text className="text-black font-medium ml-2">
+                          Pridať novú spomienku
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push(
+                      `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
+                    )
+                  }
+                  className="bg-white rounded-2xl py-4 px-6"
+                >
+                  <View className="flex-row items-center justify-center">
+                    <PlusIcon size={20} color="black" />
+                    <Text className="text-black font-medium ml-2">
+                      Pridať prvú spomienku
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </Animated.View>
           </View>
         </Pressable>
@@ -291,7 +302,7 @@ const ScrapbookDetailScreen = () => {
     );
   }
 
-  if (viewMode === "single" && memories.length > 0) {
+  if (viewMode === "single" && hasMemories) {
     return (
       <PolaroidMemoryView
         memories={memories}
@@ -300,7 +311,7 @@ const ScrapbookDetailScreen = () => {
         onBack={() => setViewMode("overview")}
         onMemoryPress={(memoryId) => router.push(`/memory/${memoryId}`)}
         formatDate={formatDate}
-        nextImageLoaded={nextImageLoaded}
+        imageCache={imageCache}
       />
     );
   }
@@ -313,13 +324,14 @@ const ScrapbookDetailScreen = () => {
           <View className="flex-row items-center justify-between px-6 py-4">
             <TouchableOpacity
               onPress={() => setViewMode("overview")}
-              className="bg-white/10 rounded-full p-3"
+              className="bg-white/10 rounded-full p-3 flex-row items-center"
             >
               <ArrowLeftIcon size={20} color="white" />
+              <Text className="text-white font-medium ml-2">Späť</Text>
             </TouchableOpacity>
             <Text className="text-white font-medium">Všetky spomienky</Text>
             <View className="bg-white/10 rounded-full px-3 py-1">
-              <Text className="text-white text-sm">{memories.length}</Text>
+              <Text className="text-white text-sm">{memoriesCount}</Text>
             </View>
           </View>
         </SafeAreaView>
@@ -332,7 +344,7 @@ const ScrapbookDetailScreen = () => {
             {memories.map((memory, index) => (
               <Animated.View
                 key={memory.$id}
-                entering={SlideInRight.delay(50 * index)}
+                entering={SlideInRight.delay(Math.min(50 * index, 300))}
                 className="w-[48%] mb-4"
               >
                 <Pressable
@@ -350,9 +362,9 @@ const ScrapbookDetailScreen = () => {
                       {formatDate(memory.date)}
                     </Text>
                   </View>
-                  {memory.imageUrl ? (
+                  {memory.thumbnailUrl ? (
                     <Image
-                      source={{ uri: memory.imageUrl }}
+                      source={{ uri: memory.thumbnailUrl }}
                       className="w-full flex-1"
                       resizeMode="cover"
                     />
@@ -382,21 +394,28 @@ const ScrapbookDetailScreen = () => {
                       </Text>
                     )}
                   </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push(
-                        `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
-                      )
-                    }
-                    className="absolute bottom-8 right-6 bg-white rounded-full p-4 shadow-lg shadow-black/30"
-                    style={{ elevation: 5 }}
-                  >
-                    <PlusIcon size={24} color="black" />
-                  </TouchableOpacity>
                 </Pressable>
               </Animated.View>
             ))}
           </View>
+          <View className="w-full mt-6 mb-10 items-center">
+            <TouchableOpacity
+              onPress={() =>
+                router.push(
+                  `/scrapbook/addMemoryScreen?scrapbookId=${scrapbookId}`
+                )
+              }
+              className="bg-white rounded-full px-6 py-4"
+            >
+              <View className="flex-row items-center">
+                <PlusIcon size={20} color="black" />
+                <Text className="text-black font-medium ml-2">
+                  Pridať spomienku
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <View className="h-6" />
         </Animated.ScrollView>
       </View>

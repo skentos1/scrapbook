@@ -50,8 +50,8 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from "react-native-reanimated";
-import { useAuth } from "../../../context/AuthContext";
-import { scrapbookService } from "../../../lib/scrapbooks";
+import { useAuth } from "../../context/AuthContext";
+import { scrapbookService } from "../../lib/scrapbooks";
 
 const { width, height } = Dimensions.get("window");
 

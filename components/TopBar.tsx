@@ -1,97 +1,51 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useSegments } from "expo-router";
+import { useRouter } from "expo-router";
 import React from "react";
-import {
-  Image,
-  SafeAreaView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import {
-  BellIcon,
-  ChevronLeftIcon,
-  UserCircleIcon,
-} from "react-native-heroicons/outline";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { Text, TouchableOpacity, View } from "react-native";
+import { BellIcon } from "react-native-heroicons/outline";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import ProfileMenu from "../components/dropdowns/profileMenu";
 import { useAuth } from "../context/AuthContext";
 
-export const TopBar = ({ title, showBack = false }) => {
+export default function TopBar({ showNotifications = true }) {
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
-  const segments = useSegments();
-  const { user, isAuthenticated } = useAuth();
-
-  // Don't show TopBar on certain screens
-  const hideOnScreens = ["login", "register", "onboarding"];
-  if (hideOnScreens.includes(segments[0])) {
-    return null;
-  }
 
   return (
-    <SafeAreaView className="bg-black">
-      <Animated.View
-        entering={FadeIn.duration(500)}
-        className="px-4 py-3 bg-black border-b border-gray-900"
-      >
-        <View className="flex-row items-center justify-between">
-          {/* Left Section */}
-          <View className="flex-row items-center flex-1">
-            {showBack ? (
-              <TouchableOpacity onPress={() => router.back()} className="mr-3">
-                <ChevronLeftIcon size={24} color="#a855f7" />
-              </TouchableOpacity>
-            ) : (
-              <View className="flex-row items-center">
-                <LinearGradient
-                  colors={["#a855f7", "#ec4899"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  className="w-8 h-8 rounded-lg items-center justify-center mr-3"
-                >
-                  <Text className="text-white font-bold text-lg">S</Text>
-                </LinearGradient>
-                <Text className="text-white text-xl font-bold">
-                  {title || "Scrapbook"}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Right Section */}
-          <View className="flex-row items-center space-x-3">
-            {isAuthenticated && (
-              <>
-                <TouchableOpacity
-                  className="relative"
-                  onPress={() => router.push("/notifications")}
-                >
-                  <View className="bg-gray-900 rounded-full p-2">
-                    <BellIcon size={20} color="#a855f7" />
-                  </View>
-                  {/* Notification Badge */}
-                  <View className="absolute -top-1 -right-1 bg-pink-600 rounded-full w-4 h-4 items-center justify-center">
-                    <Text className="text-white text-xs font-bold">3</Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => router.push("/profile")}
-                  className="bg-gray-900 rounded-full p-2"
-                >
-                  {user?.avatar ? (
-                    <Image
-                      source={{ uri: user.avatar }}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : (
-                    <UserCircleIcon size={20} color="#a855f7" />
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+    <Animated.View
+      entering={FadeInDown.duration(600)}
+      className="bg-black/95 backdrop-blur-xl px-6 py-4 border-b border-white/10"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+        zIndex: 10,
+      }}
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1">
+          <Text className="text-white text-xl font-bold">
+            Memo
+            <Text className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+              ries
+            </Text>
+          </Text>
+          <Text className="text-gray-400 text-xs">Digitálne spomienky</Text>
         </View>
-      </Animated.View>
-    </SafeAreaView>
+        <View className="flex-row items-center space-x-3">
+          {isAuthenticated && showNotifications && (
+            <TouchableOpacity
+              className="bg-white/10 rounded-full p-2 border border-white/20"
+              onPress={() => router.push("/notifications")}
+              accessibilityLabel="Notifikácie"
+            >
+              <BellIcon size={20} color="#a855f7" />
+            </TouchableOpacity>
+          )}
+          <ProfileMenu />
+        </View>
+      </View>
+    </Animated.View>
   );
-};
+}
