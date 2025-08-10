@@ -1,50 +1,85 @@
-# Welcome to your Expo app 👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# Scrapbook - Your Digital Memory Keeper 📖✨
 
-## Get started
+[![Expo Go Compatible](https://img.shields.io/badge/Expo%20Go-Compatible-green)](https://expo.dev/go)
+[![React Native](https://img.shields.io/badge/React%20Native-%2361DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Appwrite](https://img.shields.io/badge/Appwrite-000000.svg?style=for-the-badge&logo=appwrite&logoColor=F0287A)](https://appwrite.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-1. Install dependencies
+Scrapbook is a mobile application built with Expo and React Native, designed to help you capture, preserve, and relive your precious memories. It provides a beautiful and intuitive interface for creating digital scrapbooks, adding photos, and documenting your experiences.
 
-   ```bash
-   npm install
-   ```
+## ✨ Key Features
 
-2. Start the app
+-   **Create Stunning Scrapbooks:** Easily create and customize digital scrapbooks to organize your memories.
+-   **Rich Media Support:** Add photos, dates, locations, and descriptions to your memories.
+-   **Intuitive User Interface:** Enjoy a seamless and engaging user experience with beautiful animations and a user-friendly design.
+-   **Secure Authentication:** Built-in authentication using Appwrite.
+-   **Favorite Scrapbooks:** Mark scrapbooks as favorites for quick access.
+-   **Offline Access:** Access your scrapbooks and memories even without an internet connection (implementation dependent).
+-   **Themed Experiences:** Select from a variety of themes to customize the look and feel of your scrapbooks.
+-   **Share Memories:** Easily share your scrapbook with friends and family.
 
-   ```bash
-   npx expo start
-   ```
+## 🚀 Getting Started
 
-In the output, you'll find options to open the app in a
+### Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Before you begin, ensure you have the following installed:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+-   [Node.js](https://nodejs.org/) (>=18)
+-   [npm](https://www.npmjs.com/) (or [Yarn](https://yarnpkg.com/))
+-   [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
+-   [Appwrite Account](https://appwrite.io/) (for backend services)
 
-## Get a fresh project
+### Installation
 
-When you're ready, run:
+1.  **Clone the repository:**
 
-```bash
-npm run reset-project
-```
+    bash
+    npm install
+    # or
+    yarn install
+    > -   Create a new project in your Appwrite console.
+> -   Set up a database and collections for `users`, `scrapbooks`, and `memories`.  Ensure proper indexing for efficient queries.
+> -   Configure authentication methods (e.g., email/password).  Consider adding OAuth providers (Google, Apple) for easier signup.
+> -   Create a storage bucket for storing images.
+> -   Update the `.env` file (create one if it doesn't exist) with your Appwrite project ID, database ID, collection IDs, and storage bucket ID. Example:
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2.  **Choose your preferred way to run the app:**
 
-## Learn more
+    -   **Expo Go:** Scan the QR code with the Expo Go app on your iOS or Android device.
+    -   **Android Emulator/iOS Simulator:**  Press `a` for Android or `i` for iOS to run in an emulator or simulator.  You may need to configure these separately.
+    -   **Development Build:** Create a custom development build for more advanced features.
 
-To learn more about developing your project with Expo, look at the following resources:
+### Basic Usage
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+1.  **Creating a Scrapbook:**
 
-## Join the community
+    -   Tap the "Create" tab or button.
+    -   Enter a title and description for your scrapbook.
+    -   Add a cover image (optional).
+    -   Tap "Create Scrapbook" to save your new scrapbook.
 
-Join our community of developers creating universal apps.
+2.  **Adding Memories:**
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+    -   Open a scrapbook from the "Scrapbooks" tab or home screen.
+    -   Tap the "Add Memory" button.
+    -   Choose an image from your gallery or take a new photo.
+    -   Add a title, description, date, and location for your memory.
+    -   Tap "Add Memory" to save the memory to your scrapbook.
+
+3.  **Navigating:**
+
+    -   Use the tab bar to navigate between the "Home," "Discover," "Create," "Scrapbooks," and "Profile" screens.
+    -   Use the back button in the top-left corner to navigate back to the previous screen.
+
+## ⚙️ Configuration
+
+-   **Environment Variables:** Store sensitive information like API keys and database credentials in a `.env` file at the root of your project. Use the `dotenv` package (already included in Expo) to load these variables into your application. Make sure to add `.env` to your `.gitignore` file to prevent committing sensitive information.
+
+## 📝 Code Highlights
+
+### Authentication (context/AuthContext.tsx & lib/auth.ts)
+
+typescript
+export const AuthProvider =
